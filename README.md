@@ -25,5 +25,5 @@ Coursework 2 skeleton for `COMP/XJCO3011`.
 
 ## Current Status
 
-This repository currently contains a minimal scaffold only.
-
+This repository currently contains a minimal CLI shell and an initial
+homepage crawler.
