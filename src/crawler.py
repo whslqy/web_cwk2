@@ -1,5 +1,6 @@
 """Website crawling logic."""
 
+from collections import deque
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from time import monotonic, sleep
@@ -73,7 +74,7 @@ class _HTMLLinkParser(HTMLParser):
 
 
 class Crawler:
-    """Initial crawler implementation for the target website homepage."""
+    """Initial crawler implementation for the target website."""
 
     def __init__(
         self,
@@ -81,28 +82,62 @@ class Crawler:
         session: object | None = None,
         sleep_func: Callable[[float], None] = sleep,
         time_func: Callable[[], float] = monotonic,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> None:
         self.config = config or CrawlerConfig()
         self.session = session
         self.sleep_func = sleep_func
         self.time_func = time_func
+        self.progress_callback = progress_callback
         self._last_request_time: float | None = None
 
     def crawl(self) -> list[dict[str, object]]:
-        """Fetch and parse the target website homepage."""
-        html = self.fetch_page(self.config.base_url)
-        words = self.extract_words(html)
-        title = self.extract_title(html)
-        links = self.extract_links(html, self.config.base_url)
+        """Fetch and parse all reachable same-site pages."""
+        pages: list[dict[str, object]] = []
+        pending_urls = deque([self.normalise_url(self.config.base_url)])
+        visited_urls: set[str] = set()
+        scheduled_urls: set[str] = {self.normalise_url(self.config.base_url)}
 
-        return [
-            {
-                "url": self.config.base_url,
-                "title": title,
-                "words": words,
-                "links": links,
-            }
-        ]
+        while pending_urls:
+            current_url = pending_urls.popleft()
+            if current_url in visited_urls:
+                continue
+
+            if self.progress_callback is not None:
+                self.progress_callback(
+                    f"Crawling page {len(visited_urls) + 1}: {current_url}"
+                )
+
+            html = self.fetch_page(current_url)
+            page = self.parse_page(current_url, html)
+            pages.append(page)
+            visited_urls.add(current_url)
+
+            for link in page["links"]:
+                normalised_link = self.normalise_url(str(link))
+                if (
+                    self.should_visit_url(normalised_link)
+                    and normalised_link not in visited_urls
+                    and normalised_link not in scheduled_urls
+                ):
+                    pending_urls.append(normalised_link)
+                    scheduled_urls.add(normalised_link)
+
+            if self.progress_callback is not None:
+                self.progress_callback(
+                    f"Completed {current_url}. Crawled so far: {len(visited_urls)}"
+                )
+
+        return pages
+
+    def parse_page(self, url: str, html: str) -> dict[str, object]:
+        """Build a page record from raw HTML."""
+        return {
+            "url": self.normalise_url(url),
+            "title": self.extract_title(html),
+            "words": self.extract_words(html),
+            "links": self.extract_links(html, url),
+        }
 
     def fetch_page(self, url: str) -> str:
         """Return HTML for a single page request."""
@@ -122,6 +157,18 @@ class Crawler:
 
         self._last_request_time = self.time_func()
         return html
+
+    def normalise_url(self, url: str) -> str:
+        """Normalise a URL so crawl deduplication is stable."""
+        parsed = urlparse(urljoin(self.config.base_url, url))
+        path = parsed.path or "/"
+        return parsed._replace(fragment="", params="", query="", path=path).geturl()
+
+    def should_visit_url(self, url: str) -> bool:
+        """Return whether a URL is within the crawl scope for this assignment."""
+        parsed = urlparse(self.normalise_url(url))
+        base_netloc = urlparse(self.config.base_url).netloc
+        return parsed.netloc == base_netloc
 
     def extract_title(self, html: str) -> str:
         """Extract the page title."""
@@ -165,13 +212,14 @@ class Crawler:
         unique_links: list[str] = []
         seen: set[str] = set()
         for link in links:
-            parsed = urlparse(link)
+            normalised_link = self.normalise_url(link)
+            parsed = urlparse(normalised_link)
             if parsed.netloc != base_netloc:
                 continue
-            if link in seen:
+            if normalised_link in seen:
                 continue
-            seen.add(link)
-            unique_links.append(link)
+            seen.add(normalised_link)
+            unique_links.append(normalised_link)
 
         return unique_links
 

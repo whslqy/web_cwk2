@@ -1,8 +1,10 @@
 """Command-line shell for the search engine tool."""
 
 from dataclasses import dataclass
+import json
 from typing import Callable
 
+from src.crawler import Crawler
 from src.search import SearchEngine
 
 HELP_TEXT = """Available commands:
@@ -77,30 +79,55 @@ def run_command(
         return True
 
     if command.name == "build":
-        engine.build()
-        output("Index built.")
+        output(
+            "Building index. Progress will be shown below and requests wait 6 seconds between pages."
+        )
+        try:
+            payload = engine.build()
+        except Exception as error:
+            output(f"Build failed: {error}")
+        else:
+            output(
+                "Index built."
+                f" Pages: {payload['metadata']['page_count']},"
+                f" terms: {payload['metadata']['indexed_terms']}."
+            )
         return True
 
     if command.name == "load":
         try:
-            engine.load()
+            payload = engine.load()
         except FileNotFoundError:
             output("Index file not found. Run build first.")
+        except Exception as error:
+            output(f"Load failed: {error}")
         else:
-            output("Index loaded.")
+            output(
+                "Index loaded."
+                f" Pages: {payload['metadata']['page_count']},"
+                f" terms: {payload['metadata']['indexed_terms']}."
+            )
         return True
 
     if command.name == "print":
-        output(engine.print_word(command.argument))
+        postings = engine.print_word(command.argument)
+        if not postings:
+            output(f"No index entries found for '{command.argument}'.")
+        else:
+            output(json.dumps(postings, indent=2))
         return True
 
-    output(engine.find(command.argument))
+    results = engine.find(command.argument)
+    if not results:
+        output(f"No pages found for query: {command.argument}")
+    else:
+        output(json.dumps(results, indent=2))
     return True
 
 
 def main() -> None:
     """Run the interactive shell."""
-    engine = SearchEngine()
+    engine = SearchEngine(crawler=Crawler(progress_callback=print))
 
     while True:
         try:

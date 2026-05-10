@@ -5,12 +5,13 @@ class FakeEngine:
     def __init__(self) -> None:
         self.actions: list[tuple[str, str | None]] = []
 
-    def build(self) -> None:
+    def build(self) -> dict:
         self.actions.append(("build", None))
+        return {"metadata": {"page_count": 2, "indexed_terms": 5}, "index": {}}
 
     def load(self) -> dict:
         self.actions.append(("load", None))
-        return {}
+        return {"metadata": {"page_count": 2, "indexed_terms": 5}, "index": {}}
 
     def print_word(self, word: str) -> dict:
         self.actions.append(("print", word))
@@ -44,7 +45,10 @@ def test_run_command_executes_build() -> None:
 
     assert should_continue is True
     assert engine.actions == [("build", None)]
-    assert outputs == ["Index built."]
+    assert outputs == [
+        "Building index. Progress will be shown below and requests wait 6 seconds between pages.",
+        "Index built. Pages: 2, terms: 5.",
+    ]
 
 
 def test_run_command_executes_print() -> None:
@@ -55,7 +59,7 @@ def test_run_command_executes_print() -> None:
 
     assert should_continue is True
     assert engine.actions == [("print", "nonsense")]
-    assert outputs == [{"word": "nonsense"}]
+    assert outputs == ['{\n  "word": "nonsense"\n}']
 
 
 def test_run_command_outputs_help_text() -> None:
@@ -67,6 +71,17 @@ def test_run_command_outputs_help_text() -> None:
     assert should_continue is True
     assert engine.actions == []
     assert outputs == [HELP_TEXT.strip()]
+
+
+def test_run_command_reports_no_results_for_find() -> None:
+    engine = FakeEngine()
+    outputs: list[object] = []
+    engine.find = lambda query: []
+
+    should_continue = run_command(engine, "find missing", outputs.append)
+
+    assert should_continue is True
+    assert outputs == ["No pages found for query: missing"]
 
 
 def test_run_command_stops_shell_for_exit() -> None:
