@@ -90,13 +90,19 @@ class Crawler:
         self.time_func = time_func
         self.progress_callback = progress_callback
         self._last_request_time: float | None = None
+        self.failed_urls: list[str] = []
 
     def crawl(self) -> list[dict[str, object]]:
         """Fetch and parse all reachable same-site pages."""
+        return list(self.crawl_pages())
+
+    def crawl_pages(self) -> list[dict[str, object]]:
+        """Yield pages one by one while traversing the target site."""
         pages: list[dict[str, object]] = []
         pending_urls = deque([self.normalise_url(self.config.base_url)])
         visited_urls: set[str] = set()
         scheduled_urls: set[str] = {self.normalise_url(self.config.base_url)}
+        self.failed_urls = []
 
         while pending_urls:
             current_url = pending_urls.popleft()
@@ -108,10 +114,20 @@ class Crawler:
                     f"Crawling page {len(visited_urls) + 1}: {current_url}"
                 )
 
-            html = self.fetch_page(current_url)
-            page = self.parse_page(current_url, html)
-            pages.append(page)
             visited_urls.add(current_url)
+            try:
+                html = self.fetch_page(current_url)
+                page = self.parse_page(current_url, html)
+            except Exception as error:
+                self.failed_urls.append(current_url)
+                if self.progress_callback is not None:
+                    self.progress_callback(
+                        f"Failed {current_url}: {error}. Skipping."
+                    )
+                continue
+
+            pages.append(page)
+            yield page
 
             for link in page["links"]:
                 normalised_link = self.normalise_url(str(link))
@@ -127,8 +143,6 @@ class Crawler:
                 self.progress_callback(
                     f"Completed {current_url}. Crawled so far: {len(visited_urls)}"
                 )
-
-        return pages
 
     def parse_page(self, url: str, html: str) -> dict[str, object]:
         """Build a page record from raw HTML."""

@@ -23,23 +23,26 @@ class SearchEngine:
 
     def build(self) -> dict[str, Any]:
         """Crawl the site and write the compiled index to disk."""
-        pages = self.crawler.crawl()
         self.index = InvertedIndex()
+        page_count = 0
 
-        for page in pages:
+        for page in self.crawler.crawl_pages():
             url = str(page.get("url", "")).strip()
             text = str(page.get("words", ""))
             if not url:
                 continue
             self.index.add_page(url, text)
+            page_count += 1
 
         self.metadata = {
-            "page_count": len(pages),
+            "page_count": page_count,
             "indexed_terms": len(self.index.data),
+            "failed_pages": len(self.crawler.failed_urls),
         }
         payload = {
             "metadata": self.metadata,
             "index": self.index.to_dict(),
+            "failed_urls": self.crawler.failed_urls,
         }
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
         self.index_path.write_text(
@@ -68,8 +71,13 @@ class SearchEngine:
                 }
             ),
             "indexed_terms": len(self.index.data),
+            "failed_pages": 0,
         }
-        return {"metadata": self.metadata, "index": self.index.to_dict()}
+        return {
+            "metadata": self.metadata,
+            "index": self.index.to_dict(),
+            "failed_urls": [],
+        }
 
     def print_word(self, word: str) -> dict[str, dict[str, list[int] | int]]:
         """Return the posting list for a single word."""

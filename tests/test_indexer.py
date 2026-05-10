@@ -14,6 +14,14 @@ def test_tokenise_strips_punctuation_and_normalises_case() -> None:
     ]
 
 
+def test_tokenise_ignores_stray_apostrophes() -> None:
+    assert InvertedIndex.tokenise("'beautiful' don't writers'") == [
+        "beautiful",
+        "don't",
+        "writers",
+    ]
+
+
 def test_add_page_tracks_frequency_and_positions() -> None:
     index = InvertedIndex()
     index.add_page("page-1", ["good", "friends", "good"])

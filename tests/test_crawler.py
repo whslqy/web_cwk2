@@ -18,7 +18,10 @@ class FakeSession:
     def get(self, url: str, timeout: int) -> FakeResponse:
         self.calls.append((url, timeout))
         if self.pages:
-            return FakeResponse(self.pages[url])
+            page = self.pages[url]
+            if isinstance(page, Exception):
+                raise page
+            return FakeResponse(page)
         if self.html is None:
             raise KeyError(url)
         return FakeResponse(self.html)
@@ -140,6 +143,36 @@ def test_normalise_url_keeps_valid_non_trailing_slash_paths() -> None:
 
     assert crawler.normalise_url("/login") == "https://quotes.toscrape.com/login"
     assert crawler.normalise_url("/page/2/") == "https://quotes.toscrape.com/page/2/"
+
+
+def test_crawler_skips_failed_pages_and_continues() -> None:
+    pages = {
+        "https://quotes.toscrape.com/": """
+        <html>
+          <body>
+            <a href="/login">Login</a>
+            <a href="/page/2/">Page 2</a>
+          </body>
+        </html>
+        """,
+        "https://quotes.toscrape.com/login": RuntimeError("temporary failure"),
+        "https://quotes.toscrape.com/page/2/": """
+        <html>
+          <body><div>Second page.</div></body>
+        </html>
+        """,
+    }
+    messages: list[str] = []
+    crawler = Crawler(session=FakeSession(pages=pages), progress_callback=messages.append)
+
+    crawled_pages = crawler.crawl()
+
+    assert [page["url"] for page in crawled_pages] == [
+        "https://quotes.toscrape.com/",
+        "https://quotes.toscrape.com/page/2/",
+    ]
+    assert crawler.failed_urls == ["https://quotes.toscrape.com/login"]
+    assert any("Failed https://quotes.toscrape.com/login" in message for message in messages)
 
 
 def test_crawler_respects_politeness_window_between_requests() -> None:

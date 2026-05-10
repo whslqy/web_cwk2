@@ -7,11 +7,17 @@ class FakeEngine:
 
     def build(self) -> dict:
         self.actions.append(("build", None))
-        return {"metadata": {"page_count": 2, "indexed_terms": 5}, "index": {}}
+        return {
+            "metadata": {"page_count": 2, "indexed_terms": 5, "failed_pages": 0},
+            "index": {},
+        }
 
     def load(self) -> dict:
         self.actions.append(("load", None))
-        return {"metadata": {"page_count": 2, "indexed_terms": 5}, "index": {}}
+        return {
+            "metadata": {"page_count": 2, "indexed_terms": 5, "failed_pages": 0},
+            "index": {},
+        }
 
     def print_word(self, word: str) -> dict:
         self.actions.append(("print", word))
@@ -47,7 +53,7 @@ def test_run_command_executes_build() -> None:
     assert engine.actions == [("build", None)]
     assert outputs == [
         "Building index. Progress will be shown below and requests wait 6 seconds between pages.",
-        "Index built. Pages: 2, terms: 5.",
+        "Index built. Pages: 2, terms: 5, failed pages: 0.",
     ]
 
 

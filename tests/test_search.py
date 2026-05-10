@@ -7,9 +7,14 @@ from src.search import SearchEngine
 class FakeCrawler(Crawler):
     def __init__(self, pages: list[dict[str, object]]) -> None:
         self.pages = pages
+        self.failed_urls: list[str] = []
 
     def crawl(self) -> list[dict[str, object]]:
         return self.pages
+
+    def crawl_pages(self) -> list[dict[str, object]]:
+        for page in self.pages:
+            yield page
 
 
 def test_print_word_returns_empty_dict_for_missing_word(tmp_path: Path) -> None:
@@ -44,6 +49,7 @@ def test_build_writes_payload_and_load_restores_index(tmp_path: Path) -> None:
     payload = engine.build()
 
     assert payload["metadata"]["page_count"] == 2
+    assert payload["metadata"]["failed_pages"] == 0
     assert "good" in payload["index"]
     assert index_path.exists()
 
@@ -51,6 +57,7 @@ def test_build_writes_payload_and_load_restores_index(tmp_path: Path) -> None:
     loaded_payload = loaded_engine.load()
 
     assert loaded_payload["metadata"]["indexed_terms"] >= 1
+    assert loaded_payload["metadata"]["failed_pages"] == 0
     assert loaded_engine.print_word("good")["page-1"]["frequency"] == 2
 
 

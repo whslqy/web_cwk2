@@ -90,7 +90,8 @@ def run_command(
             output(
                 "Index built."
                 f" Pages: {payload['metadata']['page_count']},"
-                f" terms: {payload['metadata']['indexed_terms']}."
+                f" terms: {payload['metadata']['indexed_terms']},"
+                f" failed pages: {payload['metadata']['failed_pages']}."
             )
         return True
 
@@ -105,7 +106,8 @@ def run_command(
             output(
                 "Index loaded."
                 f" Pages: {payload['metadata']['page_count']},"
-                f" terms: {payload['metadata']['indexed_terms']}."
+                f" terms: {payload['metadata']['indexed_terms']},"
+                f" failed pages: {payload['metadata'].get('failed_pages', 0)}."
             )
         return True
 

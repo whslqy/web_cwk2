@@ -1,9 +1,9 @@
 """Inverted index structures and helpers."""
 
-from collections import defaultdict
 import re
+from collections import defaultdict
 
-WORD_PATTERN = re.compile(r"[A-Za-z0-9']+")
+WORD_PATTERN = re.compile(r"[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?")
 
 
 class InvertedIndex:
