@@ -8,8 +8,11 @@ This project implements a small search engine for
 `https://quotes.toscrape.com/`. It:
 
 - crawls the target website while respecting the politeness window
+- crawls reachable same-site pages starting from the base URL
 - extracts visible page text and same-site links
-- builds a case-insensitive inverted index with word frequency and positions
+- builds a case-insensitive inverted index during crawling
+- stores word frequency and positions for each page
+- skips failed pages and records them in the build summary
 - saves and loads the compiled index from disk
 - supports `print` and `find` commands through a command-line shell
 
@@ -38,12 +41,15 @@ Start the shell:
 
 Available commands:
 
-- `build`
-- `load`
-- `print <word>`
-- `find <query>`
+- `build`: crawl the site and save the compiled index to `data/index.json`
+- `load`: load the saved index file from disk
+- `print <word>`: show the posting list for a single term
+- `find <query>`: return pages that match one or more query terms
 - `help`
 - `exit`
+
+Search is case-insensitive, so queries such as `life`, `Life`, and `LIFE`
+are treated as the same word.
 
 Example session:
 
@@ -56,10 +62,10 @@ Example session:
 
 ## Testing
 
-If `pytest` is installed in the virtual environment:
+Run the automated tests with:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
 ## Dependencies
